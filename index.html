@@ -1,69 +1,63 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Ultra Mini Browser</title>
+  <title>DME Browser</title>
   <style>
-    body { margin: 0; font-family: Arial; background: #1a1a1a; }
+    body { margin:0; font-family:Arial; background:#202124; color:white; }
 
     #topbar {
-      display: flex;
-      gap: 5px;
-      padding: 5px;
-      background: #111;
+      display:flex;
+      padding:5px;
+      background:#303134;
+      gap:5px;
     }
 
     input {
-      padding: 8px;
-      border: none;
-      outline: none;
+      flex:1;
+      padding:8px;
+      border:none;
+      outline:none;
+      border-radius:20px;
     }
 
-    #urlInput { flex: 1; }
-
     button {
-      padding: 8px;
-      background: #333;
-      color: white;
-      border: none;
-      cursor: pointer;
+      padding:8px;
+      border:none;
+      background:#3c4043;
+      color:white;
+      cursor:pointer;
+      border-radius:6px;
     }
 
     #tabs {
-      display: flex;
-      background: #222;
-      overflow-x: auto;
+      display:flex;
+      background:#202124;
+      overflow-x:auto;
     }
 
     .tab {
-      display: flex;
-      align-items: center;
-      padding: 6px;
-      color: white;
-      cursor: pointer;
-      border-right: 1px solid #444;
-      gap: 6px;
+      padding:6px 10px;
+      background:#303134;
+      margin-right:2px;
+      cursor:pointer;
+      display:flex;
+      gap:6px;
+      align-items:center;
     }
 
-    .tab.active { background: #555; }
+    .tab.active { background:#5f6368; }
 
-    .close { color: red; cursor: pointer; margin-left: 6px; }
+    .close { color:red; cursor:pointer; }
 
     iframe {
-      width: 100%;
-      height: 85vh;
-      border: none;
-      display: none;
+      width:100%;
+      height:85vh;
+      border:none;
+      display:none;
+      background:white;
     }
 
-    iframe.active { display: block; }
-
-    #bookmarks {
-      background: #000;
-      padding: 5px;
-      display: flex;
-      gap: 5px;
-      overflow-x: auto;
-    }
+    iframe.active { display:block; }
   </style>
 </head>
 <body>
@@ -72,12 +66,10 @@
   <button onclick="goBack()">←</button>
   <button onclick="goForward()">→</button>
   <button onclick="reloadTab()">⟳</button>
-  <input id="urlInput" placeholder="enter url or search...">
-  <button onclick="openTab()">Open</button>
-  <button onclick="addBookmark()">⭐</button>
+  <input id="urlInput" placeholder="Search with DME or enter URL">
+  <button onclick="openTab()">Go</button>
 </div>
 
-<div id="bookmarks"></div>
 <div id="tabs"></div>
 <div id="frames"></div>
 
@@ -85,109 +77,115 @@
 let tabs = [];
 let current = -1;
 
-function isProbablyUrl(text) {
+function isUrl(text){
   return text.includes(".") && !text.includes(" ");
 }
 
-function setActive(i) {
-  current = i;
-
-  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-  document.querySelectorAll("iframe").forEach(f => f.classList.remove("active"));
-
-  if (tabs[i]) {
-    tabs[i].tab.classList.add("active");
-    tabs[i].frame.classList.add("active");
-    urlInput.value = tabs[i].url;
-  }
+// 🧠 DME SEARCH PAGE (internal, no blocking)
+function createSearchPage(query){
+  return `
+    <html>
+    <body style="font-family:Arial;background:#202124;color:white;text-align:center;padding-top:50px;">
+      <h1>DME Search</h1>
+      <p>You searched for:</p>
+      <h2>${query}</h2>
+      <br>
+      <button onclick="window.open('https://www.bing.com/search?q=${encodeURIComponent(query)}','_blank')">
+        Open results
+      </button>
+    </body>
+    </html>
+  `;
 }
 
-function openTab(urlParam) {
-  let raw = urlParam || urlInput.value;
-  if (!raw) return;
+function setActive(i){
+  current = i;
 
-  raw = raw.trim();
+  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+  document.querySelectorAll("iframe").forEach(f=>f.classList.remove("active"));
 
-  // 🔴 SEARCH → OPEN OUTSIDE (fixes blocking)
-  if (!isProbablyUrl(raw)) {
-    let searchUrl = "https://www.bing.com/search?q=" + encodeURIComponent(raw);
-    window.open(searchUrl, "_blank");
-    return;
-  }
+  tabs[i].tab.classList.add("active");
+  tabs[i].frame.classList.add("active");
 
-  // 🟢 URL → TRY iframe
-  let url = raw.startsWith("http") ? raw : "https://" + raw;
+  urlInput.value = tabs[i].url;
+}
+
+function openTab(){
+  let raw = urlInput.value.trim();
+  if(!raw) return;
 
   const tab = document.createElement("div");
-  tab.className = "tab";
+  tab.className="tab";
 
   const title = document.createElement("span");
   title.textContent = raw;
 
   const close = document.createElement("span");
-  close.textContent = "✕";
-  close.className = "close";
+  close.textContent="✕";
+  close.className="close";
 
-  tab.append(title, close);
+  tab.append(title,close);
 
   const frame = document.createElement("iframe");
-  frame.src = url;
+
+  // 🔍 SEARCH MODE (internal page)
+  if(!isUrl(raw)){
+    frame.srcdoc = createSearchPage(raw);
+  } else {
+    let url = raw.startsWith("http") ? raw : "https://" + raw;
+    frame.src = url;
+
+    // fallback if blocked
+    setTimeout(()=>{
+      try{
+        if(!frame.contentWindow || frame.contentWindow.length === 0){
+          frame.srcdoc = `
+            <html><body style="font-family:Arial;text-align:center;padding-top:50px;">
+            <h2>Site blocked from embedding</h2>
+            <button onclick="window.open('${url}','_blank')">
+              Open normally
+            </button>
+            </body></html>
+          `;
+        }
+      }catch{}
+    },2000);
+  }
 
   document.getElementById("tabs").appendChild(tab);
   document.getElementById("frames").appendChild(frame);
 
-  const tabObj = { tab, frame, url };
-  tabs.push(tabObj);
+  const obj = {tab,frame,url:raw};
+  tabs.push(obj);
 
-  tab.onclick = () => setActive(tabs.indexOf(tabObj));
+  tab.onclick=()=>setActive(tabs.indexOf(obj));
 
-  close.onclick = (e) => {
+  close.onclick=(e)=>{
     e.stopPropagation();
-
-    const index = tabs.indexOf(tabObj);
-
+    const i=tabs.indexOf(obj);
     tab.remove();
     frame.remove();
-    tabs.splice(index, 1);
-
-    if (tabs.length > 0) setActive(0);
-    else current = -1;
+    tabs.splice(i,1);
+    if(tabs.length) setActive(0);
   };
 
-  setActive(tabs.indexOf(tabObj));
+  setActive(tabs.indexOf(obj));
 }
 
-function goBack() {
-  if (current >= 0) {
-    try { tabs[current].frame.contentWindow.history.back(); } catch {}
-  }
+function goBack(){
+  try{ tabs[current].frame.contentWindow.history.back(); }catch{}
 }
 
-function goForward() {
-  if (current >= 0) {
-    try { tabs[current].frame.contentWindow.history.forward(); } catch {}
-  }
+function goForward(){
+  try{ tabs[current].frame.contentWindow.history.forward(); }catch{}
 }
 
-function reloadTab() {
-  if (current >= 0) {
-    tabs[current].frame.src = tabs[current].frame.src;
-  }
+function reloadTab(){
+  try{ tabs[current].frame.src = tabs[current].frame.src; }catch{}
 }
 
-function addBookmark() {
-  if (current < 0) return;
-
-  const btn = document.createElement("button");
-  btn.textContent = tabs[current].url;
-
-  btn.onclick = () => openTab(tabs[current].url);
-
-  document.getElementById("bookmarks").appendChild(btn);
-}
-
-urlInput.addEventListener("keydown", e => {
-  if (e.key === "Enter") openTab();
+urlInput.addEventListener("keydown",e=>{
+  if(e.key==="Enter") openTab();
 });
 </script>
 
