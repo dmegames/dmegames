@@ -2,13 +2,27 @@
 <html>
 <head>
   <title>DME Browser</title>
+
   <style>
-    body { margin:0; font-family:Arial; background:#202124; color:white; }
+    :root {
+      --bg: #202124;
+      --top: #303134;
+      --tab: #303134;
+      --tab-active: #5f6368;
+      --text: white;
+    }
+
+    body {
+      margin:0;
+      font-family:Arial;
+      background:var(--bg);
+      color:var(--text);
+    }
 
     #topbar {
       display:flex;
       padding:5px;
-      background:#303134;
+      background:var(--top);
       gap:5px;
     }
 
@@ -31,13 +45,13 @@
 
     #tabs {
       display:flex;
-      background:#202124;
+      background:var(--bg);
       overflow-x:auto;
     }
 
     .tab {
       padding:6px 10px;
-      background:#303134;
+      background:var(--tab);
       margin-right:2px;
       cursor:pointer;
       display:flex;
@@ -45,7 +59,7 @@
       align-items:center;
     }
 
-    .tab.active { background:#5f6368; }
+    .tab.active { background:var(--tab-active); }
 
     .close { color:red; cursor:pointer; }
 
@@ -58,6 +72,10 @@
     }
 
     iframe.active { display:block; }
+
+    #themeBtn {
+      background:#5f6368;
+    }
   </style>
 </head>
 <body>
@@ -66,8 +84,9 @@
   <button onclick="goBack()">←</button>
   <button onclick="goForward()">→</button>
   <button onclick="reloadTab()">⟳</button>
-  <input id="urlInput" placeholder="Search with DME or enter URL">
+  <input id="urlInput" placeholder="Search DME or enter URL">
   <button onclick="openTab()">Go</button>
+  <button id="themeBtn" onclick="cycleTheme()">🎨</button>
 </div>
 
 <div id="tabs"></div>
@@ -77,6 +96,36 @@
 let tabs = [];
 let current = -1;
 
+// 🎨 THEMES
+const themes = [
+  {bg:"#202124", top:"#303134", tab:"#303134", active:"#5f6368", text:"white"},
+  {bg:"#ffffff", top:"#e0e0e0", tab:"#d0d0d0", active:"#b0b0b0", text:"black"},
+  {bg:"#0b1d3a", top:"#102a54", tab:"#102a54", active:"#1e4fa1", text:"white"},
+  {bg:"#000000", top:"#111", tab:"#111", active:"#333", text:"#00ffcc"}
+];
+
+let themeIndex = localStorage.getItem("theme") || 0;
+
+function applyTheme(){
+  let t = themes[themeIndex];
+  document.documentElement.style.setProperty("--bg", t.bg);
+  document.documentElement.style.setProperty("--top", t.top);
+  document.documentElement.style.setProperty("--tab", t.tab);
+  document.documentElement.style.setProperty("--tab-active", t.active);
+  document.documentElement.style.setProperty("--text", t.text);
+
+  localStorage.setItem("theme", themeIndex);
+}
+
+function cycleTheme(){
+  themeIndex++;
+  if(themeIndex >= themes.length) themeIndex = 0;
+  applyTheme();
+}
+
+applyTheme();
+
+// 🧠 UTILS
 function isUrl(text){
   return text.includes(".") && !text.includes(" ");
 }
@@ -85,8 +134,15 @@ function isUrl(text){
 function createHomePage(){
   return `
   <html>
-  <body style="margin:0;font-family:Arial;background:#202124;color:white;text-align:center;">
+  <body style="margin:0;font-family:Arial;background:${getComputedStyle(document.body).backgroundColor};color:white;text-align:center;">
+    
     <h1 style="margin-top:40px;">DME</h1>
+
+    <input 
+      placeholder="Search..." 
+      style="padding:10px;border-radius:20px;border:none;width:60%;"
+      onkeydown="if(event.key==='Enter'){parent.openTab(this.value)}"
+    >
 
     <div style="margin-top:40px; display:grid; grid-template-columns:repeat(auto-fit,120px); gap:20px; justify-content:center;">
       
@@ -94,7 +150,7 @@ function createHomePage(){
       ${tile("GitHub","https://github.com")}
       ${tile("Wikipedia","https://wikipedia.org")}
       ${tile("Roblox","https://roblox.com")}
-      ${tile("Google","https://google.com")}
+      ${tile("ChatGPT","https://chat.openai.com")}
       
     </div>
   </body>
@@ -105,7 +161,7 @@ function createHomePage(){
 function tile(name,url){
   return `
     <div onclick="parent.openTab('${url}')" 
-      style="background:#303134;padding:20px;border-radius:10px;cursor:pointer;">
+      style="background:#303134;padding:20px;border-radius:12px;cursor:pointer;">
       ${name}
     </div>
   `;
@@ -126,6 +182,7 @@ function createSearchPage(query){
   `;
 }
 
+// 🧩 TABS
 function setActive(i){
   current = i;
 
@@ -155,15 +212,12 @@ function openTab(input){
 
   const frame = document.createElement("iframe");
 
-  // 🏠 EMPTY = HOMEPAGE
   if(!raw){
     frame.srcdoc = createHomePage();
   }
-  // 🔍 SEARCH
   else if(!isUrl(raw)){
     frame.srcdoc = createSearchPage(raw);
   }
-  // 🌐 WEBSITE
   else{
     let url = raw.startsWith("http") ? raw : "https://" + raw;
     frame.src = url;
@@ -173,7 +227,7 @@ function openTab(input){
         if(!frame.contentWindow || frame.contentWindow.length === 0){
           frame.srcdoc = `
             <html><body style="text-align:center;padding-top:50px;">
-            <h2>Site blocked</h2>
+            <h2>Blocked</h2>
             <button onclick="window.open('${url}','_blank')">Open</button>
             </body></html>
           `;
@@ -202,9 +256,10 @@ function openTab(input){
   setActive(tabs.indexOf(obj));
 }
 
-// open first tab as homepage
+// open homepage first
 openTab();
 
+// NAV
 function goBack(){ try{tabs[current].frame.contentWindow.history.back();}catch{} }
 function goForward(){ try{tabs[current].frame.contentWindow.history.forward();}catch{} }
 function reloadTab(){ try{tabs[current].frame.src = tabs[current].frame.src;}catch{} }
