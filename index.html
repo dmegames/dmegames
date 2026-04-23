@@ -81,15 +81,43 @@ function isUrl(text){
   return text.includes(".") && !text.includes(" ");
 }
 
-// 🧠 DME SEARCH PAGE (internal, no blocking)
+// 🏠 HOMEPAGE
+function createHomePage(){
+  return `
+  <html>
+  <body style="margin:0;font-family:Arial;background:#202124;color:white;text-align:center;">
+    <h1 style="margin-top:40px;">DME</h1>
+
+    <div style="margin-top:40px; display:grid; grid-template-columns:repeat(auto-fit,120px); gap:20px; justify-content:center;">
+      
+      ${tile("YouTube","https://youtube.com")}
+      ${tile("GitHub","https://github.com")}
+      ${tile("Wikipedia","https://wikipedia.org")}
+      ${tile("Roblox","https://roblox.com")}
+      ${tile("Google","https://google.com")}
+      
+    </div>
+  </body>
+  </html>
+  `;
+}
+
+function tile(name,url){
+  return `
+    <div onclick="parent.openTab('${url}')" 
+      style="background:#303134;padding:20px;border-radius:10px;cursor:pointer;">
+      ${name}
+    </div>
+  `;
+}
+
+// 🔍 SEARCH PAGE
 function createSearchPage(query){
   return `
     <html>
     <body style="font-family:Arial;background:#202124;color:white;text-align:center;padding-top:50px;">
       <h1>DME Search</h1>
-      <p>You searched for:</p>
       <h2>${query}</h2>
-      <br>
       <button onclick="window.open('https://www.bing.com/search?q=${encodeURIComponent(query)}','_blank')">
         Open results
       </button>
@@ -110,15 +138,14 @@ function setActive(i){
   urlInput.value = tabs[i].url;
 }
 
-function openTab(){
-  let raw = urlInput.value.trim();
-  if(!raw) return;
+function openTab(input){
+  let raw = input || urlInput.value;
 
   const tab = document.createElement("div");
   tab.className="tab";
 
   const title = document.createElement("span");
-  title.textContent = raw;
+  title.textContent = raw || "New Tab";
 
   const close = document.createElement("span");
   close.textContent="✕";
@@ -128,23 +155,26 @@ function openTab(){
 
   const frame = document.createElement("iframe");
 
-  // 🔍 SEARCH MODE (internal page)
-  if(!isUrl(raw)){
+  // 🏠 EMPTY = HOMEPAGE
+  if(!raw){
+    frame.srcdoc = createHomePage();
+  }
+  // 🔍 SEARCH
+  else if(!isUrl(raw)){
     frame.srcdoc = createSearchPage(raw);
-  } else {
+  }
+  // 🌐 WEBSITE
+  else{
     let url = raw.startsWith("http") ? raw : "https://" + raw;
     frame.src = url;
 
-    // fallback if blocked
     setTimeout(()=>{
       try{
         if(!frame.contentWindow || frame.contentWindow.length === 0){
           frame.srcdoc = `
-            <html><body style="font-family:Arial;text-align:center;padding-top:50px;">
-            <h2>Site blocked from embedding</h2>
-            <button onclick="window.open('${url}','_blank')">
-              Open normally
-            </button>
+            <html><body style="text-align:center;padding-top:50px;">
+            <h2>Site blocked</h2>
+            <button onclick="window.open('${url}','_blank')">Open</button>
             </body></html>
           `;
         }
@@ -172,17 +202,12 @@ function openTab(){
   setActive(tabs.indexOf(obj));
 }
 
-function goBack(){
-  try{ tabs[current].frame.contentWindow.history.back(); }catch{}
-}
+// open first tab as homepage
+openTab();
 
-function goForward(){
-  try{ tabs[current].frame.contentWindow.history.forward(); }catch{}
-}
-
-function reloadTab(){
-  try{ tabs[current].frame.src = tabs[current].frame.src; }catch{}
-}
+function goBack(){ try{tabs[current].frame.contentWindow.history.back();}catch{} }
+function goForward(){ try{tabs[current].frame.contentWindow.history.forward();}catch{} }
+function reloadTab(){ try{tabs[current].frame.src = tabs[current].frame.src;}catch{} }
 
 urlInput.addEventListener("keydown",e=>{
   if(e.key==="Enter") openTab();
