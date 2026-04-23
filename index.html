@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Ultra Mini Browser</title>
+  <style>
+    body { margin: 0; font-family: Arial; background: #1a1a1a; }
+
+    #topbar {
+      display: flex;
+      gap: 5px;
+      padding: 5px;
+      background: #111;
+    }
+
+    input {
+      padding: 8px;
+      border: none;
+      outline: none;
+    }
+
+    #urlInput { flex: 1; }
+
+    button {
+      padding: 8px;
+      background: #333;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    #tabs {
+      display: flex;
+      background: #222;
+      overflow-x: auto;
+    }
+
+    .tab {
+      display: flex;
+      align-items: center;
+      padding: 6px;
+      color: white;
+      cursor: pointer;
+      border-right: 1px solid #444;
+      gap: 6px;
+    }
+
+    .tab.active { background: #555; }
+
+    .close { color: red; cursor: pointer; }
+
+    iframe {
+      width: 100%;
+      height: 85vh;
+      border: none;
+      display: none;
+    }
+
+    iframe.active { display: block; }
+
+    #bookmarks {
+      background: #000;
+      padding: 5px;
+      display: flex;
+      gap: 5px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+
+<div id="topbar">
+  <button onclick="goBack()">←</button>
+  <button onclick="goForward()">→</button>
+  <button onclick="reloadTab()">⟳</button>
+  <input id="urlInput" placeholder="enter url or search...">
+  <button onclick="openTab()">Open</button>
+  <button onclick="addBookmark()">⭐</button>
+</div>
+
+<div id="bookmarks"></div>
+<div id="tabs"></div>
+<div id="frames"></div>
+
+<script>
+let tabs = [];
+let current = -1;
+
+function isProbablyUrl(text) {
+  return text.includes(".") && !text.includes(" ");
+}
+
+function buildUrl(input) {
+  input = input.trim();
+
+  if (isProbablyUrl(input)) {
+    if (!input.startsWith("http")) {
+      return "https://" + input;
+    }
+    return input;
+  }
+
+  return "https://duckduckgo.com/?q=" + encodeURIComponent(input);
+}
+
+function setActive(i) {
+  current = i;
+
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  document.querySelectorAll("iframe").forEach(f => f.classList.remove("active"));
+
+  tabs[i].tab.classList.add("active");
+  tabs[i].frame.classList.add("active");
+
+  urlInput.value = tabs[i].url;
+}
+
+function openTab(urlParam) {
+  let raw = urlParam || urlInput.value;
+  if (!raw) return;
+
+  let url = buildUrl(raw);
+
+  const tab = document.createElement("div");
+  tab.className = "tab";
+
+  const icon = document.createElement("img");
+  icon.src = "https://www.google.com/s2/favicons?domain=" + url;
+
+  const title = document.createElement("span");
+  title.textContent = "Loading...";
+
+  const close = document.createElement("span");
+  close.textContent = "✕";
+  close.className = "close";
+
+  tab.append(icon, title, close);
+
+  const frame = document.createElement("iframe");
+  frame.src = url;
+
+  document.getElementById("tabs").appendChild(tab);
+  document.getElementById("frames").appendChild(frame);
+
+  tabs.push({ tab, frame, url });
+
+  const index = tabs.length - 1;
+
+  tab.onclick = () => setActive(index);
+
+  close.onclick = (e) => {
+    e.stopPropagation();
+    tab.remove();
+    frame.remove();
+    tabs.splice(index, 1);
+
+    if (tabs.length > 0) setActive(0);
+    else current = -1;
+  };
+
+  frame.onload = () => {
+    try {
+      let t = frame.contentDocument.title;
+      title.textContent = t || raw;
+    } catch {
+      title.textContent = raw;
+    }
+  };
+
+  setActive(index);
+}
+
+function goBack() {
+  if (current >= 0) tabs[current].frame.contentWindow.history.back();
+}
+
+function goForward() {
+  if (current >= 0) tabs[current].frame.contentWindow.history.forward();
+}
+
+function reloadTab() {
+  if (current >= 0) tabs[current].frame.src = tabs[current].frame.src;
+}
+
+function addBookmark() {
+  if (current < 0) return;
+
+  const btn = document.createElement("button");
+  btn.textContent = tabs[current].url;
+
+  btn.onclick = () => openTab(tabs[current].url);
+
+  document.getElementById("bookmarks").appendChild(btn);
+}
+
+urlInput.addEventListener("keydown", e => {
+  if (e.key === "Enter") openTab();
+});
+</script>
+
+</body>
+</html>
