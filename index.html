@@ -12,12 +12,7 @@
       --text: white;
     }
 
-    body {
-      margin:0;
-      font-family:Arial;
-      background:var(--bg);
-      color:var(--text);
-    }
+    body { margin:0; font-family:Arial; background:var(--bg); color:var(--text); }
 
     #topbar {
       display:flex;
@@ -26,13 +21,7 @@
       gap:5px;
     }
 
-    input {
-      flex:1;
-      padding:8px;
-      border:none;
-      outline:none;
-      border-radius:20px;
-    }
+    input { flex:1; padding:8px; border:none; outline:none; border-radius:20px; }
 
     button {
       padding:8px;
@@ -43,11 +32,7 @@
       border-radius:6px;
     }
 
-    #tabs {
-      display:flex;
-      background:var(--bg);
-      overflow-x:auto;
-    }
+    #tabs { display:flex; background:var(--bg); overflow-x:auto; }
 
     .tab {
       padding:6px 10px;
@@ -73,8 +58,19 @@
 
     iframe.active { display:block; }
 
-    #themeBtn {
-      background:#5f6368;
+    .tile {
+      background:#303134;
+      padding:15px;
+      border-radius:12px;
+      cursor:pointer;
+      text-align:center;
+    }
+
+    .tile img {
+      width:24px;
+      height:24px;
+      display:block;
+      margin:0 auto 5px;
     }
   </style>
 </head>
@@ -86,7 +82,7 @@
   <button onclick="reloadTab()">⟳</button>
   <input id="urlInput" placeholder="Search DME or enter URL">
   <button onclick="openTab()">Go</button>
-  <button id="themeBtn" onclick="cycleTheme()">🎨</button>
+  <button onclick="addTile()">➕</button>
 </div>
 
 <div id="tabs"></div>
@@ -96,45 +92,29 @@
 let tabs = [];
 let current = -1;
 
-// 🎨 THEMES
-const themes = [
-  {bg:"#202124", top:"#303134", tab:"#303134", active:"#5f6368", text:"white"},
-  {bg:"#ffffff", top:"#e0e0e0", tab:"#d0d0d0", active:"#b0b0b0", text:"black"},
-  {bg:"#0b1d3a", top:"#102a54", tab:"#102a54", active:"#1e4fa1", text:"white"},
-  {bg:"#000000", top:"#111", tab:"#111", active:"#333", text:"#00ffcc"}
+// 🧠 DEFAULT TILES
+const defaultTiles = [
+  {name:"Games", url:"https://selenium-chemistry.gtec.ar"},
+  {name:"Launcher", url:"https://learning.elpsicologo.com.ar"}
 ];
 
-let themeIndex = localStorage.getItem("theme") || 0;
-
-function applyTheme(){
-  let t = themes[themeIndex];
-  document.documentElement.style.setProperty("--bg", t.bg);
-  document.documentElement.style.setProperty("--top", t.top);
-  document.documentElement.style.setProperty("--tab", t.tab);
-  document.documentElement.style.setProperty("--tab-active", t.active);
-  document.documentElement.style.setProperty("--text", t.text);
-
-  localStorage.setItem("theme", themeIndex);
+// load tiles
+function getTiles(){
+  let saved = localStorage.getItem("tiles");
+  if(saved) return JSON.parse(saved);
+  localStorage.setItem("tiles", JSON.stringify(defaultTiles));
+  return defaultTiles;
 }
 
-function cycleTheme(){
-  themeIndex++;
-  if(themeIndex >= themes.length) themeIndex = 0;
-  applyTheme();
-}
-
-applyTheme();
-
-// 🧠 UTILS
-function isUrl(text){
-  return text.includes(".") && !text.includes(" ");
-}
+function saveTiles(t){ localStorage.setItem("tiles", JSON.stringify(t)); }
 
 // 🏠 HOMEPAGE
 function createHomePage(){
+  let tiles = getTiles();
+
   return `
   <html>
-  <body style="margin:0;font-family:Arial;background:${getComputedStyle(document.body).backgroundColor};color:white;text-align:center;">
+  <body style="margin:0;font-family:Arial;background:#202124;color:white;text-align:center;">
     
     <h1 style="margin-top:40px;">DME</h1>
 
@@ -146,11 +126,7 @@ function createHomePage(){
 
     <div style="margin-top:40px; display:grid; grid-template-columns:repeat(auto-fit,120px); gap:20px; justify-content:center;">
       
-      ${tile("YouTube","https://youtube.com")}
-      ${tile("GitHub","https://github.com")}
-      ${tile("Wikipedia","https://wikipedia.org")}
-      ${tile("Roblox","https://roblox.com")}
-      ${tile("ChatGPT","https://chat.openai.com")}
+      ${tiles.map(t=>tile(t.name,t.url)).join("")}
       
     </div>
   </body>
@@ -159,26 +135,51 @@ function createHomePage(){
 }
 
 function tile(name,url){
+  let icon = "https://www.google.com/s2/favicons?domain=" + url;
+
   return `
-    <div onclick="parent.openTab('${url}')" 
-      style="background:#303134;padding:20px;border-radius:12px;cursor:pointer;">
+    <div class="tile" onclick="parent.openTab('${url}')">
+      <img src="${icon}">
       ${name}
     </div>
   `;
 }
 
-// 🔍 SEARCH PAGE
-function createSearchPage(query){
+// ➕ ADD TILE
+function addTile(){
+  let name = prompt("Site name:");
+  let url = prompt("Site URL:");
+
+  if(!name || !url) return;
+
+  let tiles = getTiles();
+  tiles.push({name,url});
+  saveTiles(tiles);
+
+  reloadHome();
+}
+
+// 🔄 reload homepage
+function reloadHome(){
+  if(current >= 0){
+    tabs[current].frame.srcdoc = createHomePage();
+  }
+}
+
+// 🔍 SEARCH
+function isUrl(text){ return text.includes(".") && !text.includes(" "); }
+
+function createSearchPage(q){
   return `
-    <html>
-    <body style="font-family:Arial;background:#202124;color:white;text-align:center;padding-top:50px;">
-      <h1>DME Search</h1>
-      <h2>${query}</h2>
-      <button onclick="window.open('https://www.bing.com/search?q=${encodeURIComponent(query)}','_blank')">
-        Open results
-      </button>
-    </body>
-    </html>
+  <html>
+  <body style="font-family:Arial;background:#202124;color:white;text-align:center;padding-top:50px;">
+    <h1>DME Search</h1>
+    <h2>${q}</h2>
+    <button onclick="window.open('https://www.bing.com/search?q=${encodeURIComponent(q)}','_blank')">
+      Open results
+    </button>
+  </body>
+  </html>
   `;
 }
 
@@ -221,19 +222,6 @@ function openTab(input){
   else{
     let url = raw.startsWith("http") ? raw : "https://" + raw;
     frame.src = url;
-
-    setTimeout(()=>{
-      try{
-        if(!frame.contentWindow || frame.contentWindow.length === 0){
-          frame.srcdoc = `
-            <html><body style="text-align:center;padding-top:50px;">
-            <h2>Blocked</h2>
-            <button onclick="window.open('${url}','_blank')">Open</button>
-            </body></html>
-          `;
-        }
-      }catch{}
-    },2000);
   }
 
   document.getElementById("tabs").appendChild(tab);
@@ -256,10 +244,10 @@ function openTab(input){
   setActive(tabs.indexOf(obj));
 }
 
-// open homepage first
+// start homepage
 openTab();
 
-// NAV
+// nav
 function goBack(){ try{tabs[current].frame.contentWindow.history.back();}catch{} }
 function goForward(){ try{tabs[current].frame.contentWindow.history.forward();}catch{} }
 function reloadTab(){ try{tabs[current].frame.src = tabs[current].frame.src;}catch{} }
