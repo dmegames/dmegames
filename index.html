@@ -5,11 +5,12 @@
 
   <style>
     :root {
-      --bg: #202124;
-      --top: #303134;
-      --tab: #303134;
-      --tab-active: #5f6368;
-      --text: white;
+      --bg:#202124;
+      --top:#303134;
+      --tab:#303134;
+      --tab-active:#5f6368;
+      --text:white;
+      --tile:#303134;
     }
 
     body { margin:0; font-family:Arial; background:var(--bg); color:var(--text); }
@@ -21,18 +22,28 @@
       gap:5px;
     }
 
-    input { flex:1; padding:8px; border:none; outline:none; border-radius:20px; }
+    input {
+      flex:1;
+      padding:8px;
+      border:none;
+      outline:none;
+      border-radius:20px;
+    }
 
     button {
       padding:8px;
       border:none;
-      background:#3c4043;
-      color:white;
+      background:var(--tab);
+      color:var(--text);
       cursor:pointer;
       border-radius:6px;
     }
 
-    #tabs { display:flex; background:var(--bg); overflow-x:auto; }
+    #tabs {
+      display:flex;
+      background:var(--bg);
+      overflow-x:auto;
+    }
 
     .tab {
       padding:6px 10px;
@@ -59,7 +70,7 @@
     iframe.active { display:block; }
 
     .tile {
-      background:#303134;
+      background:var(--tile);
       padding:15px;
       border-radius:12px;
       cursor:pointer;
@@ -83,6 +94,7 @@
   <input id="urlInput" placeholder="Search DME or enter URL">
   <button onclick="openTab()">Go</button>
   <button onclick="addTile()">➕</button>
+  <button onclick="cycleTheme()">🎨</button>
 </div>
 
 <div id="tabs"></div>
@@ -92,13 +104,43 @@
 let tabs = [];
 let current = -1;
 
+// 🎨 THEMES (5)
+const themes = [
+  {name:"Dark", bg:"#202124", top:"#303134", tab:"#303134", active:"#5f6368", text:"white", tile:"#303134"},
+  {name:"Light", bg:"#ffffff", top:"#e0e0e0", tab:"#d0d0d0", active:"#b0b0b0", text:"black", tile:"#f0f0f0"},
+  {name:"Ocean", bg:"#0b1d3a", top:"#102a54", tab:"#102a54", active:"#1e4fa1", text:"white", tile:"#123061"},
+  {name:"Sunset", bg:"#3a0b1d", top:"#5a102a", tab:"#5a102a", active:"#a11e4f", text:"white", tile:"#611234"},
+  {name:"Neon", bg:"#000000", top:"#111111", tab:"#111111", active:"#00ffcc", text:"#00ffcc", tile:"#0a0a0a"}
+];
+
+let themeIndex = localStorage.getItem("theme") || 0;
+
+function applyTheme(){
+  let t = themes[themeIndex];
+  document.documentElement.style.setProperty("--bg", t.bg);
+  document.documentElement.style.setProperty("--top", t.top);
+  document.documentElement.style.setProperty("--tab", t.tab);
+  document.documentElement.style.setProperty("--tab-active", t.active);
+  document.documentElement.style.setProperty("--text", t.text);
+  document.documentElement.style.setProperty("--tile", t.tile);
+
+  localStorage.setItem("theme", themeIndex);
+}
+
+function cycleTheme(){
+  themeIndex++;
+  if(themeIndex >= themes.length) themeIndex = 0;
+  applyTheme();
+}
+
+applyTheme();
+
 // 🧠 DEFAULT TILES
 const defaultTiles = [
   {name:"Games", url:"https://selenium-chemistry.gtec.ar"},
   {name:"Launcher", url:"https://learning.elpsicologo.com.ar"}
 ];
 
-// load tiles
 function getTiles(){
   let saved = localStorage.getItem("tiles");
   if(saved) return JSON.parse(saved);
@@ -114,7 +156,7 @@ function createHomePage(){
 
   return `
   <html>
-  <body style="margin:0;font-family:Arial;background:#202124;color:white;text-align:center;">
+  <body style="margin:0;font-family:Arial;background:${getComputedStyle(document.body).backgroundColor};color:${getComputedStyle(document.body).color};text-align:center;">
     
     <h1 style="margin-top:40px;">DME</h1>
 
@@ -125,9 +167,7 @@ function createHomePage(){
     >
 
     <div style="margin-top:40px; display:grid; grid-template-columns:repeat(auto-fit,120px); gap:20px; justify-content:center;">
-      
       ${tiles.map(t=>tile(t.name,t.url)).join("")}
-      
     </div>
   </body>
   </html>
@@ -149,7 +189,6 @@ function tile(name,url){
 function addTile(){
   let name = prompt("Site name:");
   let url = prompt("Site URL:");
-
   if(!name || !url) return;
 
   let tiles = getTiles();
@@ -159,7 +198,6 @@ function addTile(){
   reloadHome();
 }
 
-// 🔄 reload homepage
 function reloadHome(){
   if(current >= 0){
     tabs[current].frame.srcdoc = createHomePage();
@@ -169,7 +207,7 @@ function reloadHome(){
 // 🔍 SEARCH
 function isUrl(text){ return text.includes(".") && !text.includes(" "); }
 
-function createSearchPage(q){
+async function createSearchPage(q){
   return `
   <html>
   <body style="font-family:Arial;background:#202124;color:white;text-align:center;padding-top:50px;">
@@ -217,7 +255,7 @@ function openTab(input){
     frame.srcdoc = createHomePage();
   }
   else if(!isUrl(raw)){
-    frame.srcdoc = createSearchPage(raw);
+    createSearchPage(raw).then(html => frame.srcdoc = html);
   }
   else{
     let url = raw.startsWith("http") ? raw : "https://" + raw;
