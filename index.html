@@ -1,295 +1,289 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>DME</title>
+<title>DME</title>
 
-  <style>
-    :root{
-      --bg:#202124;
-      --top:#303134;
-      --tab:#2b2c2f;
-      --tab-active:#3c4043;
-      --text:#e8eaed;
-    }
+<style>
+:root{
+  --bg:#202124;
+  --top:#303134;
+  --text:white;
+}
 
-    body{
-      margin:0;
-      font-family:Arial;
-      background:var(--bg);
-      color:var(--text);
-    }
+body{
+  margin:0;
+  font-family:Arial;
+  background:var(--bg);
+  color:var(--text);
+  overflow:hidden;
+}
 
-    /* TOP */
-    #topbar{
-      display:flex;
-      align-items:center;
-      padding:6px;
-      background:var(--top);
-      gap:6px;
-    }
+/* TOP */
+#topbar{
+  display:flex;
+  gap:6px;
+  padding:6px;
+  background:var(--top);
+}
 
-    button{
-      background:none;
-      border:none;
-      color:var(--text);
-      cursor:pointer;
-      padding:6px;
-      border-radius:6px;
-    }
+button{
+  background:none;
+  border:none;
+  color:white;
+  cursor:pointer;
+}
 
-    button:hover{ background:#3c4043; }
+input{
+  flex:1;
+  padding:10px;
+  border-radius:20px;
+  border:none;
+  text-align:center;
+}
 
-    #urlInput{
-      flex:1;
-      padding:10px;
-      border:none;
-      border-radius:20px;
-      background:#202124;
-      color:white;
-      text-align:center;
-    }
+/* TABS */
+#tabs{
+  display:flex;
+  background:#303134;
+}
 
-    /* TABS */
-    #tabs{
-      display:flex;
-      background:var(--top);
-      padding-left:6px;
-      align-items:center;
-    }
+.tab{
+  padding:6px 10px;
+  background:#2b2c2f;
+  margin-right:3px;
+  cursor:grab;
+  border-radius:10px 10px 0 0;
+}
 
-    .tab{
-      display:flex;
-      align-items:center;
-      gap:6px;
-      padding:6px 12px;
-      background:var(--tab);
-      border-radius:12px 12px 0 0;
-      margin-right:4px;
-      cursor:pointer;
-      max-width:160px;
-    }
+.tab.active{ background:#3c4043; }
 
-    .tab.active{ background:var(--tab-active); }
+iframe{
+  width:100%;
+  height:85vh;
+  border:none;
+  display:none;
+}
 
-    .tab img{ width:16px;height:16px; }
+iframe.active{ display:block; }
 
-    .close{ color:#aaa;margin-left:4px; }
-
-    .close:hover{ color:red; }
-
-    #newTabBtn{
-      font-size:18px;
-      padding:4px 10px;
-    }
-
-    /* BOOKMARKS */
-    #bookmarks{
-      display:flex;
-      gap:10px;
-      padding:5px 10px;
-      background:#2a2b2e;
-      overflow-x:auto;
-    }
-
-    .bookmark{
-      cursor:pointer;
-      padding:5px 10px;
-      background:#3c4043;
-      border-radius:12px;
-      white-space:nowrap;
-    }
-
-    /* HISTORY PANEL */
-    #historyPanel{
-      position:fixed;
-      right:0;
-      top:0;
-      width:250px;
-      height:100%;
-      background:#202124;
-      border-left:1px solid #444;
-      overflow:auto;
-      display:none;
-      padding:10px;
-    }
-
-    .historyItem{
-      padding:6px;
-      cursor:pointer;
-      border-bottom:1px solid #333;
-    }
-
-    iframe{
-      width:100%;
-      height:85vh;
-      border:none;
-      display:none;
-    }
-
-    iframe.active{ display:block; }
-  </style>
+/* wallpaper */
+#wallpaper{
+  position:fixed;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  z-index:-2;
+}
+</style>
 </head>
 <body>
 
+<img id="wallpaper">
+
 <div id="topbar">
-  <button onclick="goBack()">←</button>
-  <button onclick="goForward()">→</button>
-  <button onclick="reloadTab()">⟳</button>
-
-  <input id="urlInput" placeholder="Search DME or type URL">
-
-  <button onclick="openTab()">➤</button>
-  <button onclick="toggleHistory()">🕘</button>
+<button onclick="goBack()">←</button>
+<button onclick="goForward()">→</button>
+<button onclick="reloadTab()">⟳</button>
+<input id="urlInput" placeholder="Search DME or type URL">
+<button onclick="openTab()">Go</button>
+<button onclick="uploadWallpaper()">🖼️</button>
 </div>
 
-<div id="tabs">
-  <button id="newTabBtn" onclick="openTab()">＋</button>
-</div>
-
-<div id="bookmarks"></div>
-
+<div id="tabs"></div>
 <div id="frames"></div>
-
-<div id="historyPanel"></div>
 
 <script>
 let tabs=[];
 let current=-1;
 
-// ⭐ bookmarks
-let bookmarks = JSON.parse(localStorage.getItem("bookmarks")||"[]");
-
-function saveBookmarks(){ localStorage.setItem("bookmarks",JSON.stringify(bookmarks)); }
-
-function renderBookmarks(){
-  let bar=document.getElementById("bookmarks");
-  bar.innerHTML="";
-  bookmarks.forEach(b=>{
-    let el=document.createElement("div");
-    el.className="bookmark";
-    el.textContent=b.name;
-    el.onclick=()=>openTab(b.url);
-    bar.appendChild(el);
-  });
+/* 🔊 SOUND */
+function clickSound(){
+  let a=new Audio("https://actions.google.com/sounds/v1/ui/click.ogg");
+  a.volume=0.2;
+  a.play();
 }
 
-function addBookmark(){
+/* 🖼️ WALLPAPER */
+function uploadWallpaper(){
+  let input=document.createElement("input");
+  input.type="file";
+  input.onchange=e=>{
+    let file=e.target.files[0];
+    let url=URL.createObjectURL(file);
+    document.getElementById("wallpaper").src=url;
+    localStorage.setItem("wallpaper",url);
+  };
+  input.click();
+}
+
+let savedWall=localStorage.getItem("wallpaper");
+if(savedWall) document.getElementById("wallpaper").src=savedWall;
+
+/* 📌 TILES */
+let defaultTiles=[
+  {name:"Games",url:"https://selenium-chemistry.gtec.ar"},
+  {name:"Launcher",url:"https://learning.elpsicologo.com.ar"}
+];
+
+function getTiles(){
+  let t=localStorage.getItem("tiles");
+  if(t) return JSON.parse(t);
+  localStorage.setItem("tiles",JSON.stringify(defaultTiles));
+  return defaultTiles;
+}
+
+function saveTiles(t){ localStorage.setItem("tiles",JSON.stringify(t)); }
+
+/* 🏠 NEW TAB */
+function createNewTab(){
+  let tiles=getTiles();
+
+  return `
+  <body style="background:#202124;color:white;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:Arial;">
+    <h1 style="font-size:80px;">DME</h1>
+
+    <input placeholder="Search..."
+      style="padding:10px;border-radius:20px;width:400px;"
+      onkeydown="if(event.key==='Enter'){parent.openTab(this.value)}">
+
+    <div style="margin-top:40px;display:grid;grid-template-columns:repeat(auto-fit,100px);gap:20px;">
+      ${tiles.map((t,i)=>`
+        <div style="text-align:center;">
+          <div onclick="parent.openTab('${t.url}')" style="cursor:pointer;">
+            <img src="https://www.google.com/s2/favicons?domain=${t.url}">
+            <div>${t.name}</div>
+          </div>
+          <button onclick="parent.removeTile(${i})">❌</button>
+        </div>
+      `).join("")}
+    </div>
+
+    <button onclick="parent.addTile()" style="margin-top:20px;">Add</button>
+  `;
+}
+
+/* ➕ add tile */
+function addTile(){
   let name=prompt("Name:");
-  let url=urlInput.value;
+  let url=prompt("URL:");
   if(!name||!url) return;
-  bookmarks.push({name,url});
-  saveBookmarks();
-  renderBookmarks();
+
+  let t=getTiles();
+  t.push({name,url});
+  saveTiles(t);
+  reloadHome();
 }
 
-// 🧾 history
-let historyList = JSON.parse(localStorage.getItem("history")||"[]");
-
-function addHistory(url){
-  historyList.unshift(url);
-  localStorage.setItem("history",JSON.stringify(historyList.slice(0,50)));
+/* ❌ remove tile */
+function removeTile(i){
+  let t=getTiles();
+  t.splice(i,1);
+  saveTiles(t);
+  reloadHome();
 }
 
-function renderHistory(){
-  let panel=document.getElementById("historyPanel");
-  panel.innerHTML="<h3>History</h3>";
-  historyList.forEach(h=>{
-    let item=document.createElement("div");
-    item.className="historyItem";
-    item.textContent=h;
-    item.onclick=()=>openTab(h);
-    panel.appendChild(item);
-  });
+function reloadHome(){
+  tabs[current].frame.srcdoc=createNewTab();
 }
 
-function toggleHistory(){
-  let panel=document.getElementById("historyPanel");
-  panel.style.display = panel.style.display==="block"?"none":"block";
-  renderHistory();
+/* 🔍 SEARCH */
+async function createSearchPage(q){
+  let res=await fetch("https://api.duckduckgo.com/?q="+encodeURIComponent(q)+"&format=json");
+  let data=await res.json();
+
+  let list=(data.RelatedTopics||[]).map(r=>`
+    <div onclick="parent.openTab('${r.FirstURL}')" style="cursor:pointer;margin-bottom:10px;">
+      <div style="color:#8ab4f8">${r.Text}</div>
+      <div style="font-size:12px">${r.FirstURL}</div>
+    </div>
+  `).join("");
+
+  return `<body style="background:#202124;color:white;padding:20px;">
+    <h2>${q}</h2>${list}
+  </body>`;
 }
 
-// 🧠 utils
+/* 🧩 TABS */
 function isUrl(t){ return t.includes(".") && !t.includes(" "); }
 
-function createSearchPage(q){
-  return `<h1 style="text-align:center;margin-top:50px;">DME: ${q}</h1>`;
-}
-
-// 🧩 tabs
 function setActive(i){
   current=i;
-
   document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
   document.querySelectorAll("iframe").forEach(f=>f.classList.remove("active"));
-
   tabs[i].tab.classList.add("active");
   tabs[i].frame.classList.add("active");
-
-  urlInput.value=tabs[i].url||"";
 }
 
 function openTab(input){
+  clickSound();
+
   let raw=input||urlInput.value;
 
-  const tab=document.createElement("div");
+  let tab=document.createElement("div");
   tab.className="tab";
+  tab.draggable=true;
+  tab.textContent=raw||"New Tab";
 
-  const icon=document.createElement("img");
-  icon.src="https://www.google.com/s2/favicons?domain="+raw;
-
-  const title=document.createElement("span");
-  title.textContent=raw||"New Tab";
-
-  const close=document.createElement("span");
-  close.textContent="✕";
-  close.className="close";
-
-  tab.append(icon,title,close);
-
-  const frame=document.createElement("iframe");
+  let frame=document.createElement("iframe");
 
   if(!raw){
-    frame.srcdoc="<h1 style='text-align:center;'>DME</h1>";
+    frame.srcdoc=createNewTab();
   }
   else if(!isUrl(raw)){
-    frame.srcdoc=createSearchPage(raw);
+    createSearchPage(raw).then(html=>frame.srcdoc=html);
   }
   else{
-    let url=raw.startsWith("http")?raw:"https://"+raw;
-    frame.src=url;
-    addHistory(url);
+    frame.src=raw.startsWith("http")?raw:"https://"+raw;
   }
 
   document.getElementById("tabs").appendChild(tab);
   document.getElementById("frames").appendChild(frame);
 
-  const obj={tab,frame,url:raw};
+  let obj={tab,frame};
   tabs.push(obj);
 
   tab.onclick=()=>setActive(tabs.indexOf(obj));
 
-  close.onclick=(e)=>{
-    e.stopPropagation();
-    const i=tabs.indexOf(obj);
-    tab.remove();
-    frame.remove();
-    tabs.splice(i,1);
-    if(tabs.length) setActive(0);
+  /* drag */
+  tab.ondragstart=e=>{
+    e.dataTransfer.setData("text/plain",tabs.indexOf(obj));
   };
+
+  tab.ondrop=e=>{
+    let from=e.dataTransfer.getData("text");
+    let to=tabs.indexOf(obj);
+    let t=tabs.splice(from,1)[0];
+    tabs.splice(to,0,t);
+    refreshTabs();
+  };
+
+  tab.ondragover=e=>e.preventDefault();
 
   setActive(tabs.indexOf(obj));
 }
 
-// nav
-function goBack(){ try{tabs[current].frame.contentWindow.history.back();}catch{} }
-function goForward(){ try{tabs[current].frame.contentWindow.history.forward();}catch{} }
-function reloadTab(){ try{tabs[current].frame.src=tabs[current].frame.src;}catch{} }
+function refreshTabs(){
+  let tabBar=document.getElementById("tabs");
+  let frameBox=document.getElementById("frames");
+
+  tabBar.innerHTML="";
+  frameBox.innerHTML="";
+
+  tabs.forEach(t=>{
+    tabBar.appendChild(t.tab);
+    frameBox.appendChild(t.frame);
+  });
+}
+
+/* nav */
+function goBack(){try{tabs[current].frame.contentWindow.history.back()}catch{}}
+function goForward(){try{tabs[current].frame.contentWindow.history.forward()}catch{}}
+function reloadTab(){try{tabs[current].frame.src=tabs[current].frame.src}catch{}}
 
 urlInput.addEventListener("keydown",e=>{
   if(e.key==="Enter") openTab();
 });
 
-renderBookmarks();
 openTab();
 </script>
 
