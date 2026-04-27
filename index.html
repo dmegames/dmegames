@@ -4,17 +4,11 @@
 <title>DME</title>
 
 <style>
-:root{
-  --bg:#202124;
-  --top:#303134;
-  --text:white;
-}
-
 body{
   margin:0;
   font-family:Arial;
-  background:var(--bg);
-  color:var(--text);
+  background:#202124;
+  color:white;
 }
 
 /* TOPBAR */
@@ -22,7 +16,7 @@ body{
   display:flex;
   gap:6px;
   padding:6px;
-  background:var(--top);
+  background:#303134;
 }
 
 button{
@@ -30,7 +24,6 @@ button{
   border:none;
   color:white;
   cursor:pointer;
-  padding:6px;
 }
 
 input{
@@ -52,14 +45,13 @@ input{
   background:#2b2c2f;
   margin-right:3px;
   cursor:pointer;
-  border-radius:10px 10px 0 0;
 }
 
 .tab.active{
   background:#3c4043;
 }
 
-/* FRAMES */
+/* FRAME */
 iframe{
   width:100%;
   height:85vh;
@@ -71,58 +63,40 @@ iframe.active{
   display:block;
 }
 
-/* HISTORY */
-#historyPanel{
+/* THEME PANEL */
+#themePanel{
   position:fixed;
-  right:0;
-  top:0;
-  width:260px;
-  height:100%;
+  bottom:20px;
+  left:50%;
+  transform:translateX(-50%);
   background:#202124;
-  border-left:1px solid #444;
+  padding:15px;
+  border-radius:10px;
   display:none;
-  padding:10px;
-  overflow:auto;
-  z-index:999;
+  gap:10px;
 }
 
-.historyItem{
-  padding:6px;
+.theme{
+  width:60px;
+  height:60px;
+  border-radius:8px;
   cursor:pointer;
-  border-bottom:1px solid #333;
+  border:2px solid #555;
 }
 </style>
 </head>
 <body>
 
-<!-- TOPBAR -->
 <div id="topbar">
-  <button onclick="goBack()">←</button>
-  <button onclick="goForward()">→</button>
-  <button onclick="reloadTab()">⟳</button>
-
   <button onclick="openTab()">＋</button>
-
   <input id="urlInput" placeholder="Search DME or type URL">
-
-  <button onclick="toggleHistory()">🕘</button>
-  <button onclick="cycleTheme()">🎨</button>
+  <button onclick="toggleThemes()">🎨</button>
 </div>
 
-<!-- TABS -->
 <div id="tabs"></div>
-
-<!-- FRAMES -->
 <div id="frames"></div>
 
-<!-- HISTORY PANEL -->
-<div id="historyPanel">
-  <div style="display:flex;justify-content:space-between;">
-    <h3>History</h3>
-    <button onclick="toggleHistory()">✕</button>
-  </div>
-  <div id="historyList"></div>
-</div>
+<div id="themePanel"></div>
 
 <script>
 let tabs=[];
@@ -130,103 +104,123 @@ let current=-1;
 
 /* ---------------- THEMES ---------------- */
 
-const themes = ["dark","ocean","sunset","neon","snow"];
-let themeIndex = 0;
+const themes = [
+  {name:"snow", color:"#0b1d3a"},
+  {name:"dark", color:"#202124"},
+  {name:"ocean", color:"#0b1d3a"},
+  {name:"sunset", color:"#3a0b1d"},
+  {name:"neon", color:"#000"}
+];
 
-function applyTheme(){
-  let t = themes[themeIndex];
+let currentTheme = localStorage.getItem("theme") || "dark";
 
-  if(t==="dark") document.body.style.background="#202124";
-  if(t==="ocean") document.body.style.background="#0b1d3a";
-  if(t==="sunset") document.body.style.background="#3a0b1d";
-  if(t==="neon") document.body.style.background="#000";
-  if(t==="snow") document.body.style.background="#0b1d3a";
+function toggleThemes(){
+  let panel=document.getElementById("themePanel");
+  panel.style.display = panel.style.display==="flex" ? "none" : "flex";
 }
 
-function cycleTheme(){
-  themeIndex++;
-  if(themeIndex >= themes.length) themeIndex = 0;
-  applyTheme();
-}
+function renderThemes(){
+  let panel=document.getElementById("themePanel");
+  panel.innerHTML="";
+  panel.style.display="flex";
 
-applyTheme();
+  themes.forEach(t=>{
+    let div=document.createElement("div");
+    div.className="theme";
+    div.style.background=t.color;
 
-/* ---------------- HISTORY ---------------- */
+    div.onclick=()=>{
+      currentTheme=t.name;
+      localStorage.setItem("theme",t.name);
+      reloadHome();
+    };
 
-let historyList = JSON.parse(localStorage.getItem("history") || "[]");
-
-function addHistory(url){
-  historyList.unshift(url);
-  localStorage.setItem("history", JSON.stringify(historyList.slice(0,50)));
-}
-
-function renderHistory(){
-  let box = document.getElementById("historyList");
-  box.innerHTML = "";
-
-  historyList.forEach(h=>{
-    let div = document.createElement("div");
-    div.className = "historyItem";
-    div.textContent = h;
-    div.onclick = ()=>openTab(h);
-    box.appendChild(div);
+    panel.appendChild(div);
   });
 }
 
-function toggleHistory(){
-  let panel = document.getElementById("historyPanel");
+renderThemes();
 
-  if(panel.style.display === "block"){
-    panel.style.display = "none";
-  } else {
-    panel.style.display = "block";
-    renderHistory();
-  }
-}
-
-/* ---------------- PINNED ---------------- */
-
-let tiles = [
-  {name:"Games",url:"https://selenium-chemistry.gtec.ar"},
-  {name:"Launcher",url:"https://learning.elpsicologo.com.ar"}
-];
+/* ---------------- NEW TAB ---------------- */
 
 function createNewTab(){
+  let theme = currentTheme;
+
+  let animation = "";
+
+  if(theme==="snow"){
+    animation = `
+      <canvas id="snow"></canvas>
+      <script>
+        let c=document.getElementById("snow");
+        let ctx=c.getContext("2d");
+        c.width=window.innerWidth;
+        c.height=window.innerHeight;
+
+        let snow=[];
+        for(let i=0;i<100;i++){
+          snow.push({x:Math.random()*c.width,y:Math.random()*c.height});
+        }
+
+        function draw(){
+          ctx.clearRect(0,0,c.width,c.height);
+          ctx.fillStyle="white";
+          snow.forEach(s=>{
+            ctx.fillRect(s.x,s.y,2,2);
+            s.y+=1;
+            if(s.y>c.height)s.y=0;
+          });
+          requestAnimationFrame(draw);
+        }
+        draw();
+      <\/script>
+    `;
+  }
+
   return `
-  <body style="background:#202124;color:white;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;">
+  <body style="
+    background:${themes.find(t=>t.name===theme).color};
+    color:white;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    height:100vh;
+  ">
+
+    ${animation}
+
     <h1 style="font-size:80px;">DME</h1>
 
     <input placeholder="Search..."
       style="padding:10px;border-radius:20px;width:400px;"
       onkeydown="if(event.key==='Enter'){parent.openTab(this.value)}">
 
-    <div style="margin-top:40px;display:flex;gap:20px;">
-      ${tiles.map(t=>`
-        <div onclick="parent.openTab('${t.url}')" style="cursor:pointer;text-align:center;">
-          <img src="https://www.google.com/s2/favicons?domain=${t.url}">
-          <div>${t.name}</div>
-        </div>
-      `).join("")}
-    </div>
   `;
 }
 
 /* ---------------- SEARCH ---------------- */
 
 async function createSearchPage(q){
-  let res = await fetch("https://api.duckduckgo.com/?q="+encodeURIComponent(q)+"&format=json");
+  let res = await fetch("https://api.duckduckgo.com/?q="+encodeURIComponent(q)+"&format=json&no_html=1");
   let data = await res.json();
 
-  let list = (data.RelatedTopics||[]).map(r=>`
-    <div onclick="parent.openTab('${r.FirstURL}')" style="cursor:pointer;margin-bottom:10px;">
-      <div style="color:#8ab4f8">${r.Text}</div>
-      <div style="font-size:12px">${r.FirstURL}</div>
-    </div>
-  `).join("");
+  let results = (data.RelatedTopics || []).slice(0,10).map(r=>{
+    if(!r.Text) return "";
+    return `
+      <div onclick="parent.openTab('${r.FirstURL}')" style="cursor:pointer;margin-bottom:15px;">
+        <div style="color:#8ab4f8">${r.Text}</div>
+        <div style="font-size:12px">${r.FirstURL}</div>
+      </div>
+    `;
+  }).join("");
 
-  return `<body style="background:#202124;color:white;padding:20px;">
-    <h2>${q}</h2>${list}
-  </body>`;
+  return `
+  <body style="background:#202124;color:white;padding:20px;">
+    <h2>${q}</h2>
+    ${results || "No results"}
+  </body>
+  `;
 }
 
 /* ---------------- TABS ---------------- */
@@ -236,7 +230,7 @@ function isUrl(t){
 }
 
 function setActive(i){
-  current = i;
+  current=i;
 
   document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
   document.querySelectorAll("iframe").forEach(f=>f.classList.remove("active"));
@@ -246,45 +240,45 @@ function setActive(i){
 }
 
 function openTab(input){
-  let raw = input || urlInput.value;
+  let raw=input||urlInput.value;
 
-  let tab = document.createElement("div");
-  tab.className = "tab";
-  tab.textContent = raw || "New Tab";
+  let tab=document.createElement("div");
+  tab.className="tab";
+  tab.textContent=raw||"New Tab";
 
-  let frame = document.createElement("iframe");
+  let frame=document.createElement("iframe");
 
   if(!raw){
-    frame.srcdoc = createNewTab();
+    frame.srcdoc=createNewTab();
   }
   else if(!isUrl(raw)){
     createSearchPage(raw).then(html=>{
-      frame.srcdoc = html;
+      frame.srcdoc=html;
     });
   }
   else{
-    let url = raw.startsWith("http") ? raw : "https://" + raw;
-    frame.src = url;
-    addHistory(url);
+    frame.src=raw.startsWith("http")?raw:"https://"+raw;
   }
 
   document.getElementById("tabs").appendChild(tab);
   document.getElementById("frames").appendChild(frame);
 
-  let obj = {tab, frame};
+  let obj={tab,frame};
   tabs.push(obj);
 
-  tab.onclick = ()=>setActive(tabs.indexOf(obj));
+  tab.onclick=()=>setActive(tabs.indexOf(obj));
 
   setActive(tabs.indexOf(obj));
 }
 
-/* NAV */
-function goBack(){ try{tabs[current].frame.contentWindow.history.back()}catch{} }
-function goForward(){ try{tabs[current].frame.contentWindow.history.forward()}catch{} }
-function reloadTab(){ try{tabs[current].frame.src=tabs[current].frame.src}catch{} }
+/* reload homepage */
+function reloadHome(){
+  if(tabs[current]){
+    tabs[current].frame.srcdoc=createNewTab();
+  }
+}
 
-urlInput.addEventListener("keydown", e=>{
+urlInput.addEventListener("keydown",e=>{
   if(e.key==="Enter") openTab();
 });
 
