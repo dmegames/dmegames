@@ -2,203 +2,294 @@
 <html>
 <head>
 <title>DME</title>
+<meta charset="UTF-8">
 
 <style>
 body{margin:0;font-family:Arial;background:#202124;color:white;}
-
-/* TOPBAR */
 #topbar{display:flex;gap:6px;padding:6px;background:#303134;}
 button{background:none;border:none;color:white;cursor:pointer;}
 input{flex:1;padding:10px;border-radius:20px;border:none;text-align:center;}
 
-/* TABS */
 #tabs{display:flex;background:#303134;}
-.tab{padding:6px 10px;background:#2b2c2f;margin-right:3px;cursor:grab;}
+.tab{padding:6px 10px;background:#2b2c2f;margin-right:3px;cursor:grab;display:flex;gap:5px;align-items:center;}
 .tab.active{background:#3c4043;}
 
-/* FRAMES */
-#frames{display:flex;}
 iframe{width:100%;height:85vh;border:none;display:none;}
 iframe.active{display:block;}
 iframe.split{width:50%!important;display:block!important;}
 
-/* HISTORY */
-#historyPanel{
-  position:fixed;
-  right:0;
-  top:0;
-  width:250px;
-  height:100%;
-  background:#202124;
-  border-left:1px solid #444;
-  display:none;
-  padding:10px;
-  overflow:auto;
+#frames{display:flex;}
+
+.panel{
+position:fixed;inset:0;background:#202124;
+display:flex;flex-direction:column;
+align-items:center;justify-content:center;
+z-index:999;
 }
 
-.historyItem{
-  padding:6px;
-  border-bottom:1px solid #333;
-  cursor:pointer;
+#historyPanel{
+position:fixed;right:0;top:0;width:250px;height:100%;
+background:#202124;border-left:1px solid #444;
+display:none;padding:10px;overflow:auto;
+}
+
+.historyItem{padding:6px;border-bottom:1px solid #333;cursor:pointer;}
+
+.tile{width:90px;text-align:center;cursor:pointer;}
+.tile img{width:32px;height:32px;}
+
+@keyframes gradient{
+0%{background-position:0%}
+100%{background-position:100%}
+}
+@keyframes pulse{
+0%{opacity:0.7}
+100%{opacity:1}
 }
 </style>
 </head>
 <body>
 
 <div id="topbar">
-  <button onclick="openTab()">＋</button>
-  <input id="urlInput" placeholder="Search or type URL">
-  <button onclick="toggleHistory()">🕘</button>
-  <button onclick="toggleSplit()">🪟</button>
+<button onclick="openTab()">＋</button>
+<input id="urlInput" placeholder="Search or type URL">
+<button onclick="openThemes()">🎨</button>
+<button onclick="toggleHistory()">🕘</button>
+<button onclick="toggleSplit()">🪟</button>
 </div>
 
 <div id="tabs"></div>
 <div id="frames"></div>
 
 <div id="historyPanel">
-  <h3>History <button onclick="toggleHistory()">✕</button></h3>
-  <div id="historyList"></div>
+<h3>History <button onclick="toggleHistory()">✕</button></h3>
+<div id="historyList"></div>
 </div>
 
 <script>
-let tabs=[], current=-1;
-let split=false;
+let tabs=[],current=-1,split=false;
+
+/* CONFIG */
+let config=JSON.parse(localStorage.getItem("config")||"null");
+if(!config) setup();
+
+/* SETUP */
+function setup(){
+document.body.innerHTML+=`
+<div class="panel">
+<h1>Welcome to DME</h1>
+<p>Select theme</p>
+${themeButtons(true)}
+</div>`;
+}
+
+/* THEMES */
+const themes={
+dark:"#202124",
+snow:"#0b1d3a",
+ocean:"linear-gradient(270deg,#001f3f,#003f7f)",
+sunset:"linear-gradient(270deg,#ff5e62,#ff9966)",
+neon:"#000"
+};
+
+function themeButtons(first){
+return Object.keys(themes).map(t=>`
+<div style="background:${themes[t]};width:80px;height:80px;margin:10px;border-radius:10px;cursor:pointer;"
+onclick="setTheme('${t}',${first})"></div>`).join("");
+}
+
+function openThemes(){
+document.body.innerHTML+=`
+<div class="panel" id="themes">
+<h2>Themes</h2>
+${themeButtons(false)}
+<button onclick="closeThemes()">Close</button>
+</div>`;
+}
+
+function closeThemes(){document.getElementById("themes")?.remove();}
+
+function setTheme(t,first){
+config={theme:t};
+localStorage.setItem("config",JSON.stringify(config));
+if(first) location.reload();
+else closeThemes();
+}
 
 /* HISTORY */
 let historyData=JSON.parse(localStorage.getItem("history")||"[]");
 
 function addHistory(url){
-  historyData.unshift(url);
-  localStorage.setItem("history",JSON.stringify(historyData.slice(0,50)));
+historyData.unshift(url);
+localStorage.setItem("history",JSON.stringify(historyData.slice(0,50)));
 }
 
 function renderHistory(){
-  let box=document.getElementById("historyList");
-  box.innerHTML="";
-  historyData.forEach(h=>{
-    let d=document.createElement("div");
-    d.className="historyItem";
-    d.textContent=h;
-    d.onclick=()=>openTab(h);
-    box.appendChild(d);
-  });
+let box=document.getElementById("historyList");
+box.innerHTML="";
+historyData.forEach(h=>{
+let d=document.createElement("div");
+d.className="historyItem";
+d.textContent=h;
+d.onclick=()=>openTab(h);
+box.appendChild(d);
+});
 }
 
 function toggleHistory(){
-  let p=document.getElementById("historyPanel");
-  if(p.style.display==="block") p.style.display="none";
-  else{
-    p.style.display="block";
-    renderHistory();
-  }
+let p=document.getElementById("historyPanel");
+if(p.style.display==="block") p.style.display="none";
+else{p.style.display="block";renderHistory();}
 }
 
 /* SPLIT */
 function toggleSplit(){
-  split=!split;
-  document.querySelectorAll("iframe").forEach(f=>{
-    if(split) f.classList.add("split");
-    else f.classList.remove("split");
-  });
+split=!split;
+document.querySelectorAll("iframe").forEach(f=>{
+split?f.classList.add("split"):f.classList.remove("split");
+});
 }
 
-/* SEARCH PAGE */
-function searchPage(q){
-  return `
-  <body style="background:#202124;color:white;padding:20px;">
-    <h2>Results for "${q}"</h2>
+/* TILES */
+let tiles=JSON.parse(localStorage.getItem("tiles")||"null")||[
+{name:"Games",url:"https://selenium-chemistry.gtec.ar"},
+{name:"Launcher",url:"https://learning.elpsicologo.com.ar"}
+];
 
-    <div onclick="parent.openTab('https://duckduckgo.com/?q=${encodeURIComponent(q)}')" 
-         style="cursor:pointer;color:#8ab4f8;margin-top:10px;">
-      Search on DuckDuckGo
-    </div>
+function saveTiles(){localStorage.setItem("tiles",JSON.stringify(tiles));}
 
-    <div onclick="parent.openTab('https://www.youtube.com/results?search_query=${encodeURIComponent(q)}')" 
-         style="cursor:pointer;color:#8ab4f8;margin-top:10px;">
-      Search on YouTube
-    </div>
-
-    <div onclick="parent.openTab('https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(q)}')" 
-         style="cursor:pointer;color:#8ab4f8;margin-top:10px;">
-      Search on Wikipedia
-    </div>
-  `;
+function addTile(){
+let n=prompt("Name:"),u=prompt("URL:");
+if(!n||!u)return;
+tiles.push({name:n,url:u});
+saveTiles();reloadHome();
 }
 
-/* TABS */
+function removeTile(i){
+tiles.splice(i,1);
+saveTiles();reloadHome();
+}
+
+/* NEW TAB */
+function createNewTab(){
+let t=config.theme,bg=themes[t],anim="";
+
+if(bg.includes("gradient")) anim="background-size:200% 200%;animation:gradient 6s linear infinite;";
+if(t==="neon") anim="animation:pulse 1s infinite alternate;";
+
+let snow="";
+if(t==="snow"){
+snow=`<canvas id="snow"></canvas>
+<script>
+let c=document.getElementById("snow"),ctx=c.getContext("2d");
+c.width=window.innerWidth;c.height=window.innerHeight;
+let s=[];for(let i=0;i<80;i++)s.push({x:Math.random()*c.width,y:Math.random()*c.height});
+function d(){ctx.clearRect(0,0,c.width,c.height);
+ctx.fillStyle="white";
+s.forEach(p=>{ctx.fillRect(p.x,p.y,2,2);p.y+=1;if(p.y>c.height)p.y=0;});
+requestAnimationFrame(d);}d();
+<\/script>`;
+}
+
+return `<body style="background:${bg};${anim};display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;">
+${snow}
+<h1 style="font-size:80px;">DME</h1>
+
+<input placeholder="Search..."
+style="padding:10px;border-radius:20px;width:400px;"
+onkeydown="if(event.key==='Enter'){parent.openTab(this.value)}">
+
+<div style="margin-top:40px;display:flex;gap:20px;flex-wrap:wrap;">
+${tiles.map((t,i)=>`
+<div class="tile">
+<div onclick="parent.openTab('${t.url}')">
+<img src="https://www.google.com/s2/favicons?domain=${t.url}">
+<div>${t.name}</div>
+</div>
+<button onclick="parent.removeTile(${i})">❌</button>
+</div>`).join("")}
+</div>
+
+<button onclick="parent.addTile()">Add</button>
+`;
+}
+
+/* SEARCH */
 function isUrl(t){return t.includes(".")&&!t.includes(" ");}
 
-function setActive(i){
-  current=i;
-  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
-  document.querySelectorAll("iframe").forEach(f=>f.classList.remove("active"));
-  tabs[i].tab.classList.add("active");
-  tabs[i].frame.classList.add("active");
+function openTab(input){
+let raw=input||urlInput.value;
+closeThemes();
+
+let tab=document.createElement("div");
+tab.className="tab";
+tab.draggable=true;
+
+let label=document.createElement("span");
+label.textContent=raw||"New Tab";
+
+let close=document.createElement("span");
+close.textContent="✕";
+close.onclick=(e)=>{e.stopPropagation();closeTab(obj);};
+
+tab.appendChild(label);
+tab.appendChild(close);
+
+let frame=document.createElement("iframe");
+
+if(!raw) frame.srcdoc=createNewTab();
+else if(!isUrl(raw)) frame.src="https://duckduckgo.com/?q="+encodeURIComponent(raw);
+else{
+let url=raw.startsWith("http")?raw:"https://"+raw;
+frame.src=url;
+addHistory(url);
 }
 
-function openTab(input){
-  let raw=input||urlInput.value;
+document.getElementById("tabs").appendChild(tab);
+document.getElementById("frames").appendChild(frame);
 
-  let tab=document.createElement("div");
-  tab.className="tab";
-  tab.draggable=true;
-  tab.textContent=raw||"New Tab";
+let obj={tab,frame};
+tabs.push(obj);
 
-  let frame=document.createElement("iframe");
+tab.onclick=()=>setActive(tabs.indexOf(obj));
 
-  if(!raw){
-    frame.srcdoc="<h1 style='text-align:center;margin-top:40vh;'>New Tab</h1>";
-  }
-  else if(!isUrl(raw)){
-    frame.srcdoc=searchPage(raw);
-  }
-  else{
-    let url=raw.startsWith("http")?raw:"https://"+raw;
-    frame.src=url;
-    addHistory(url);
-  }
+tab.ondragstart=e=>e.dataTransfer.setData("i",tabs.indexOf(obj));
+tab.ondrop=e=>{
+let from=e.dataTransfer.getData("i"),to=tabs.indexOf(obj);
+let t=tabs.splice(from,1)[0];
+tabs.splice(to,0,t);
+refreshTabs();
+};
+tab.ondragover=e=>e.preventDefault();
 
-  document.getElementById("tabs").appendChild(tab);
-  document.getElementById("frames").appendChild(frame);
+setActive(tabs.indexOf(obj));
+}
 
-  let obj={tab,frame};
-  tabs.push(obj);
-
-  tab.onclick=()=>setActive(tabs.indexOf(obj));
-
-  /* DRAG */
-  tab.ondragstart=e=>{
-    e.dataTransfer.setData("i",tabs.indexOf(obj));
-  };
-
-  tab.ondrop=e=>{
-    let from=e.dataTransfer.getData("i");
-    let to=tabs.indexOf(obj);
-    let t=tabs.splice(from,1)[0];
-    tabs.splice(to,0,t);
-    refreshTabs();
-  };
-
-  tab.ondragover=e=>e.preventDefault();
-
-  setActive(tabs.indexOf(obj));
+function closeTab(obj){
+let i=tabs.indexOf(obj);
+obj.tab.remove();
+obj.frame.remove();
+tabs.splice(i,1);
+if(tabs.length) setActive(0);
 }
 
 function refreshTabs(){
-  let t=document.getElementById("tabs");
-  let f=document.getElementById("frames");
-  t.innerHTML="";
-  f.innerHTML="";
-  tabs.forEach(x=>{
-    t.appendChild(x.tab);
-    f.appendChild(x.frame);
-  });
+let t=document.getElementById("tabs"),f=document.getElementById("frames");
+t.innerHTML="";f.innerHTML="";
+tabs.forEach(x=>{t.appendChild(x.tab);f.appendChild(x.frame);});
 }
 
-/* ENTER */
-urlInput.addEventListener("keydown",e=>{
-  if(e.key==="Enter") openTab();
-});
+function setActive(i){
+current=i;
+document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+document.querySelectorAll("iframe").forEach(f=>f.classList.remove("active"));
+tabs[i].tab.classList.add("active");
+tabs[i].frame.classList.add("active");
+}
+
+function reloadHome(){if(tabs[current])tabs[current].frame.srcdoc=createNewTab();}
+
+urlInput.addEventListener("keydown",e=>{if(e.key==="Enter")openTab();});
 
 openTab();
 </script>
