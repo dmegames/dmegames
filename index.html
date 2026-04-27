@@ -2,6 +2,7 @@
 <html>
 <head>
 <title>DME</title>
+<meta charset="UTF-8">
 
 <style>
 body{
@@ -51,7 +52,6 @@ input{
   background:#3c4043;
 }
 
-/* FRAME */
 iframe{
   width:100%;
   height:85vh;
@@ -63,25 +63,32 @@ iframe.active{
   display:block;
 }
 
-/* THEME PANEL */
-#themePanel{
+/* PANELS */
+.panel{
   position:fixed;
-  bottom:20px;
-  left:50%;
-  transform:translateX(-50%);
+  inset:0;
   background:#202124;
-  padding:15px;
-  border-radius:10px;
-  display:none;
-  gap:10px;
+  z-index:999;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
 }
 
+/* THEME GRID */
 .theme{
-  width:60px;
-  height:60px;
-  border-radius:8px;
+  width:80px;
+  height:80px;
+  margin:10px;
+  display:inline-block;
+  border-radius:10px;
   cursor:pointer;
-  border:2px solid #555;
+}
+
+/* animations */
+@keyframes gradient{
+  0%{background-position:0%}
+  100%{background-position:100%}
 }
 </style>
 </head>
@@ -89,106 +96,102 @@ iframe.active{
 
 <div id="topbar">
   <button onclick="openTab()">＋</button>
-  <input id="urlInput" placeholder="Search DME or type URL">
-  <button onclick="toggleThemes()">🎨</button>
+  <input id="urlInput" placeholder="Search or type URL">
+  <button onclick="openThemes()">🎨</button>
+  <button onclick="openDownloads()">⬇</button>
 </div>
 
 <div id="tabs"></div>
 <div id="frames"></div>
 
-<div id="themePanel"></div>
-
 <script>
-let tabs=[];
-let current=-1;
+let tabs=[], current=-1;
+
+/* ---------------- CONFIG ---------------- */
+let config = JSON.parse(localStorage.getItem("config")||"null");
+
+if(!config){
+  showSetup();
+}else{
+  showWhatsNew();
+}
+
+/* ---------------- SETUP ---------------- */
+function showSetup(){
+  document.body.innerHTML = `
+  <div class="panel">
+    <h1>Welcome to DME</h1>
+    <p>Choose your theme</p>
+    ${themeButtons(true)}
+  </div>`;
+}
+
+/* ---------------- WHAT'S NEW ---------------- */
+const version = "1.0.0";
+
+function showWhatsNew(){
+  let seen = localStorage.getItem("version");
+
+  if(seen!==version){
+    document.body.innerHTML += `
+    <div class="panel" id="whats">
+      <h2>What's New</h2>
+      <p>New themes, search fix, downloads</p>
+      <button onclick="closeWhats()">Continue</button>
+    </div>`;
+  }
+}
+
+function closeWhats(){
+  document.getElementById("whats").remove();
+  localStorage.setItem("version",version);
+}
 
 /* ---------------- THEMES ---------------- */
+const themes={
+  snow:"#0b1d3a",
+  ocean:"#001f3f",
+  sunset:"#ff5e62",
+  neon:"#000",
+  dark:"#202124"
+};
 
-const themes = [
-  {name:"snow", color:"#0b1d3a"},
-  {name:"dark", color:"#202124"},
-  {name:"ocean", color:"#0b1d3a"},
-  {name:"sunset", color:"#3a0b1d"},
-  {name:"neon", color:"#000"}
-];
-
-let currentTheme = localStorage.getItem("theme") || "dark";
-
-function toggleThemes(){
-  let panel=document.getElementById("themePanel");
-  panel.style.display = panel.style.display==="flex" ? "none" : "flex";
+function themeButtons(setup=false){
+  return Object.keys(themes).map(t=>`
+    <div class="theme" style="background:${themes[t]}" onclick="setTheme('${t}',${setup})"></div>
+  `).join("");
 }
 
-function renderThemes(){
-  let panel=document.getElementById("themePanel");
-  panel.innerHTML="";
-  panel.style.display="flex";
-
-  themes.forEach(t=>{
-    let div=document.createElement("div");
-    div.className="theme";
-    div.style.background=t.color;
-
-    div.onclick=()=>{
-      currentTheme=t.name;
-      localStorage.setItem("theme",t.name);
-      reloadHome();
-    };
-
-    panel.appendChild(div);
-  });
+function openThemes(){
+  document.body.innerHTML += `
+  <div class="panel" id="themes">
+    <h2>Themes</h2>
+    ${themeButtons(false)}
+    <button onclick="closeThemes()">Close</button>
+  </div>`;
 }
 
-renderThemes();
+function closeThemes(){
+  document.getElementById("themes").remove();
+}
+
+function setTheme(t,setup){
+  config = {theme:t};
+  localStorage.setItem("config",JSON.stringify(config));
+
+  if(setup){
+    location.reload();
+  }else{
+    closeThemes();
+  }
+}
 
 /* ---------------- NEW TAB ---------------- */
-
 function createNewTab(){
-  let theme = currentTheme;
-
-  let animation = "";
-
-  if(theme==="snow"){
-    animation = `
-      <canvas id="snow"></canvas>
-      <script>
-        let c=document.getElementById("snow");
-        let ctx=c.getContext("2d");
-        c.width=window.innerWidth;
-        c.height=window.innerHeight;
-
-        let snow=[];
-        for(let i=0;i<100;i++){
-          snow.push({x:Math.random()*c.width,y:Math.random()*c.height});
-        }
-
-        function draw(){
-          ctx.clearRect(0,0,c.width,c.height);
-          ctx.fillStyle="white";
-          snow.forEach(s=>{
-            ctx.fillRect(s.x,s.y,2,2);
-            s.y+=1;
-            if(s.y>c.height)s.y=0;
-          });
-          requestAnimationFrame(draw);
-        }
-        draw();
-      <\/script>
-    `;
-  }
+  let t=config.theme;
 
   return `
-  <body style="
-    background:${themes.find(t=>t.name===theme).color};
-    color:white;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    justify-content:center;
-    height:100vh;
-  ">
-
-    ${animation}
+  <body style="background:${themes[t]};display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;">
 
     <h1 style="font-size:80px;">DME</h1>
 
@@ -200,47 +203,38 @@ function createNewTab(){
 }
 
 /* ---------------- SEARCH ---------------- */
-
-async function createSearchPage(q){
-  let res = await fetch("https://api.duckduckgo.com/?q="+encodeURIComponent(q)+"&format=json&no_html=1");
-  let data = await res.json();
-
-  let results = (data.RelatedTopics || []).slice(0,10).map(r=>{
-    if(!r.Text) return "";
-    return `
-      <div onclick="parent.openTab('${r.FirstURL}')" style="cursor:pointer;margin-bottom:15px;">
-        <div style="color:#8ab4f8">${r.Text}</div>
-        <div style="font-size:12px">${r.FirstURL}</div>
-      </div>
-    `;
-  }).join("");
-
+async function search(q){
+  let res = await fetch("https://duckduckgo.com/html/?q="+encodeURIComponent(q));
   return `
   <body style="background:#202124;color:white;padding:20px;">
     <h2>${q}</h2>
-    ${results || "No results"}
-  </body>
+    <p>Click below to search</p>
+    <a href="https://duckduckgo.com/?q=${encodeURIComponent(q)}" target="_blank">Open results</a>
   `;
 }
 
-/* ---------------- TABS ---------------- */
+/* ---------------- DOWNLOADS ---------------- */
+let downloads = JSON.parse(localStorage.getItem("downloads")||"[]");
 
-function isUrl(t){
-  return t.includes(".") && !t.includes(" ");
+function openDownloads(){
+  alert(downloads.join("\\n")||"No downloads");
 }
+
+/* ---------------- TABS ---------------- */
+function isUrl(t){return t.includes(".")}
 
 function setActive(i){
   current=i;
-
   document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
   document.querySelectorAll("iframe").forEach(f=>f.classList.remove("active"));
-
   tabs[i].tab.classList.add("active");
   tabs[i].frame.classList.add("active");
 }
 
 function openTab(input){
   let raw=input||urlInput.value;
+
+  closeThemes?.();
 
   let tab=document.createElement("div");
   tab.className="tab";
@@ -252,12 +246,13 @@ function openTab(input){
     frame.srcdoc=createNewTab();
   }
   else if(!isUrl(raw)){
-    createSearchPage(raw).then(html=>{
-      frame.srcdoc=html;
-    });
+    search(raw).then(html=>frame.srcdoc=html);
   }
   else{
-    frame.src=raw.startsWith("http")?raw:"https://"+raw;
+    let url=raw.startsWith("http")?raw:"https://"+raw;
+    frame.src=url;
+    downloads.push(url);
+    localStorage.setItem("downloads",JSON.stringify(downloads));
   }
 
   document.getElementById("tabs").appendChild(tab);
@@ -267,23 +262,10 @@ function openTab(input){
   tabs.push(obj);
 
   tab.onclick=()=>setActive(tabs.indexOf(obj));
-
   setActive(tabs.indexOf(obj));
 }
 
-/* reload homepage */
-function reloadHome(){
-  if(tabs[current]){
-    tabs[current].frame.srcdoc=createNewTab();
-  }
-}
-
-urlInput.addEventListener("keydown",e=>{
-  if(e.key==="Enter") openTab();
-});
-
 openTab();
 </script>
-
 </body>
 </html>
