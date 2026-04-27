@@ -62,24 +62,36 @@ iframe.active{
   display:block;
 }
 
-/* THEME PANEL */
-#themePanel{
+/* PANEL */
+.panel{
   position:fixed;
-  bottom:20px;
-  left:50%;
-  transform:translateX(-50%);
+  inset:0;
   background:#202124;
-  padding:10px;
-  border-radius:10px;
-  display:none;
-  gap:10px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  z-index:999;
 }
 
+/* THEMES */
 .theme{
-  width:60px;
-  height:60px;
+  width:80px;
+  height:80px;
+  margin:10px;
   border-radius:10px;
   cursor:pointer;
+}
+
+/* ANIMATIONS */
+@keyframes gradient{
+  0%{background-position:0%}
+  100%{background-position:100%}
+}
+
+@keyframes pulse{
+  0%{opacity:0.7}
+  100%{opacity:1}
 }
 </style>
 </head>
@@ -88,67 +100,117 @@ iframe.active{
 <div id="topbar">
   <button onclick="openTab()">＋</button>
   <input id="urlInput" placeholder="Search or type URL">
-  <button onclick="toggleThemes()">🎨</button>
+  <button onclick="openThemes()">🎨</button>
 </div>
 
 <div id="tabs"></div>
 <div id="frames"></div>
 
-<div id="themePanel"></div>
-
 <script>
 let tabs=[], current=-1;
+
+/* ---------------- CONFIG ---------------- */
+let config = JSON.parse(localStorage.getItem("config")||"null");
+
+if(!config){
+  setup();
+}
+
+/* ---------------- SETUP ---------------- */
+function setup(){
+  document.body.innerHTML += `
+  <div class="panel">
+    <h1>Welcome to DME</h1>
+    <p>Select a theme</p>
+    ${themeButtons(true)}
+  </div>`;
+}
 
 /* ---------------- THEMES ---------------- */
 
 const themes={
   dark:"#202124",
-  ocean:"#0b1d3a",
-  sunset:"#3a0b1d",
-  neon:"#000",
-  snow:"#0b1d3a"
+  snow:"#0b1d3a",
+  ocean:"#001f3f",
+  sunset:"linear-gradient(270deg,#ff5e62,#ff9966)",
+  neon:"#000"
 };
 
-let currentTheme = localStorage.getItem("theme") || "dark";
-
-function toggleThemes(){
-  let panel=document.getElementById("themePanel");
-  panel.style.display = panel.style.display==="flex"?"none":"flex";
+function themeButtons(first){
+  return Object.keys(themes).map(t=>`
+    <div class="theme" style="background:${themes[t]}"
+      onclick="setTheme('${t}',${first})"></div>
+  `).join("");
 }
 
-function renderThemes(){
-  let panel=document.getElementById("themePanel");
-  panel.innerHTML="";
-  panel.style.display="flex";
-
-  Object.keys(themes).forEach(t=>{
-    let div=document.createElement("div");
-    div.className="theme";
-    div.style.background=themes[t];
-    div.onclick=()=>{
-      currentTheme=t;
-      localStorage.setItem("theme",t);
-      reloadHome();
-    };
-    panel.appendChild(div);
-  });
+function openThemes(){
+  document.body.innerHTML += `
+  <div class="panel" id="themes">
+    <h2>Themes</h2>
+    ${themeButtons(false)}
+    <button onclick="closeThemes()">Close</button>
+  </div>`;
 }
 
-renderThemes();
+function closeThemes(){
+  document.getElementById("themes")?.remove();
+}
+
+function setTheme(t,first){
+  config={theme:t};
+  localStorage.setItem("config",JSON.stringify(config));
+
+  if(first) location.reload();
+  else closeThemes();
+}
 
 /* ---------------- NEW TAB ---------------- */
 
 function createNewTab(){
+  let t=config.theme;
+  let bg=themes[t];
+
+  let extra="";
+
+  if(t==="snow"){
+    extra=`
+    <canvas id="snow"></canvas>
+    <script>
+      let c=document.getElementById("snow");
+      let ctx=c.getContext("2d");
+      c.width=window.innerWidth;
+      c.height=window.innerHeight;
+
+      let snow=[];
+      for(let i=0;i<80;i++){
+        snow.push({x:Math.random()*c.width,y:Math.random()*c.height});
+      }
+
+      function draw(){
+        ctx.clearRect(0,0,c.width,c.height);
+        ctx.fillStyle="white";
+        snow.forEach(s=>{
+          ctx.fillRect(s.x,s.y,2,2);
+          s.y+=1;
+          if(s.y>c.height)s.y=0;
+        });
+        requestAnimationFrame(draw);
+      }
+      draw();
+    <\/script>`;
+  }
+
+  if(t==="sunset"){
+    extra=`style="background-size:200% 200%;animation:gradient 5s linear infinite;"`;
+  }
+
+  if(t==="neon"){
+    extra=`style="animation:pulse 1s infinite alternate;"`;
+  }
+
   return `
-  <body style="
-    background:${themes[currentTheme]};
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    justify-content:center;
-    height:100vh;
-    color:white;
-  ">
+  <body style="background:${bg};display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;" ${extra}>
+    ${extra.includes("canvas")?extra:""}
     <h1 style="font-size:80px;">DME</h1>
 
     <input placeholder="Search..."
@@ -159,38 +221,14 @@ function createNewTab(){
 
 /* ---------------- SEARCH ---------------- */
 
-function searchPage(q){
-  return `
-  <body style="background:#202124;color:white;padding:20px;">
-    <h2>${q}</h2>
-
-    <div onclick="parent.openTab('https://duckduckgo.com/?q=${encodeURIComponent(q)}')" 
-         style="cursor:pointer;color:#8ab4f8;">
-      Search "${q}" on DuckDuckGo
-    </div>
-  `;
-}
-
-/* ---------------- TABS ---------------- */
-
 function isUrl(t){
   return t.includes(".") && !t.includes(" ");
-}
-
-function setActive(i){
-  current=i;
-
-  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
-  document.querySelectorAll("iframe").forEach(f=>f.classList.remove("active"));
-
-  tabs[i].tab.classList.add("active");
-  tabs[i].frame.classList.add("active");
 }
 
 function openTab(input){
   let raw=input||urlInput.value;
 
-  document.getElementById("themePanel").style.display="none";
+  closeThemes();
 
   let tab=document.createElement("div");
   tab.className="tab";
@@ -202,7 +240,8 @@ function openTab(input){
     frame.srcdoc=createNewTab();
   }
   else if(!isUrl(raw)){
-    frame.srcdoc=searchPage(raw);
+    // clean search (REAL working)
+    frame.src="https://duckduckgo.com/?q="+encodeURIComponent(raw);
   }
   else{
     let url=raw.startsWith("http")?raw:"https://"+raw;
@@ -216,22 +255,24 @@ function openTab(input){
   tabs.push(obj);
 
   tab.onclick=()=>setActive(tabs.indexOf(obj));
-
   setActive(tabs.indexOf(obj));
 }
 
-function reloadHome(){
-  if(tabs[current]){
-    tabs[current].frame.srcdoc=createNewTab();
-  }
+function setActive(i){
+  current=i;
+  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+  document.querySelectorAll("iframe").forEach(f=>f.classList.remove("active"));
+  tabs[i].tab.classList.add("active");
+  tabs[i].frame.classList.add("active");
 }
 
+/* ENTER */
 urlInput.addEventListener("keydown",e=>{
   if(e.key==="Enter") openTab();
 });
 
+/* start */
 openTab();
 </script>
-
 </body>
 </html>
